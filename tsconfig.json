@@ -5,6 +5,7 @@
 			"*": ["*"],
 			"managers/*": ["managers/*"],
 			"utils/*": ["utils/*"],
+			"@utils/*": ["utils/*"],
 			"icons": ["icons"]
 		},
 		"target": "es6",
