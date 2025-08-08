@@ -237,7 +237,7 @@ function initializeProviderList() {
 	);
 
 	providerList.innerHTML = '';
-	sortedProviders.forEach((provider, index) => {
+	sortedProviders.forEach((provider, _) => {
 		const originalIndex = generalSettings.providers.findIndex(p => p.id === provider.id);
 		const providerItem = createProviderListItem(provider, originalIndex);
 		providerList.appendChild(providerItem);
@@ -329,23 +329,6 @@ function addProviderToList(event: Event) {
 function editProvider(index: number) {
 	const providerToEdit = generalSettings.providers[index];
 	showProviderModal(providerToEdit, index);
-}
-
-function duplicateProvider(index: number) {
-	const providerToDuplicate = generalSettings.providers[index];
-	const duplicatedProvider: Provider = {
-		...providerToDuplicate,
-		id: Date.now().toString(),
-		name: `${providerToDuplicate.name} (copy)`,
-		apiKey: ''
-	};
-
-	generalSettings.providers.push(duplicatedProvider);
-	saveSettings();
-	initializeProviderList();
-
-	const newIndex = generalSettings.providers.length - 1;
-	showProviderModal(duplicatedProvider, newIndex);
 }
 
 function deleteProvider(index: number): void {
@@ -846,7 +829,6 @@ async function showModelModal(model: ModelConfig, index?: number) {
 		newConfirmBtn.addEventListener('click', async () => {
 			const formData = new FormData(form);
 			const selectedProviderId = formData.get('providerId') as string;
-			const modelSelectionRadio = form.querySelector('input[name="model-selection"]:checked') as HTMLInputElement;
 			
 			let updatedModel: ModelConfig = {
 				id: model.id,

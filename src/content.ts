@@ -3,6 +3,7 @@ import * as highlighter from './utils/highlighter';
 import { loadSettings, generalSettings } from './utils/storage-utils';
 import Defuddle from 'defuddle';
 import { getDomain } from './utils/string-utils';
+import { ContentResponse } from './types/types'
 
 declare global {
 	interface Window {
@@ -31,26 +32,6 @@ declare global {
 			return true;
 		}
 	});
-
-	interface ContentResponse {
-		content: string;
-		selectedHtml: string;
-		extractedContent: { [key: string]: string };
-		schemaOrgData: any;
-		fullHtml: string;
-		highlights: string[];
-		title: string;
-		description: string;
-		domain: string;
-		favicon: string;
-		image: string;
-		parseTime: number;
-		published: string;
-		author: string;
-		site: string;
-		wordCount: number;
-		metaTags: { name?: string | null; property?: string | null; content: string | null }[];
-	}
 
 	browser.runtime.onMessage.addListener((request: any, sender: browser.Runtime.MessageSender, sendResponse: (response?: any) => void) => {
 		if (request.action === "getPageContent") {

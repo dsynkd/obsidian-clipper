@@ -106,11 +106,6 @@ export function importTemplate(input?: HTMLInputElement): void {
 
 				console.log('Processed template properties:', importedTemplate.properties);
 
-				// Keep the context if it exists in the imported template
-				if (importedTemplate.context) {
-					importedTemplate.context = importedTemplate.context;
-				}
-
 				let newName = importedTemplate.name as string;
 				let counter = 1;
 				while (templates.some(t => t.name === newName)) {
@@ -152,39 +147,21 @@ function validateImportedTemplate(template: Partial<Template>): boolean {
 	
 	const isDailyNote = template.behavior === 'append-daily' || template.behavior === 'prepend-daily';
 
-	const hasRequiredFields = requiredFields.every(field => template.hasOwnProperty(field));
+	const hasRequiredFields = requiredFields.every(field => Object.prototype.hasOwnProperty.call(template, field));
 	const hasValidProperties = Array.isArray(template.properties) &&
-		template.properties!.every((prop: any) => 
-			prop.hasOwnProperty('name') && 
-			prop.hasOwnProperty('value') && 
-			(!prop.hasOwnProperty('type') || validTypes.includes(prop.type))
-		);
+								template.properties!.every((prop: any) =>
+									Object.prototype.hasOwnProperty.call(prop, 'name') && 
+									Object.prototype.hasOwnProperty.call(prop, 'value') && 
+									(!Object.prototype.hasOwnProperty.call(prop, 'type') || validTypes.includes(prop.type))
+								);
 
 	// Check for noteNameFormat and path only if it's not a daily note template
-	const hasValidNoteNameAndPath = isDailyNote || (template.hasOwnProperty('noteNameFormat') && template.hasOwnProperty('path'));
+	const hasValidNoteNameAndPath = isDailyNote || (Object.prototype.hasOwnProperty.call(template, 'noteNameFormat') && Object.prototype.hasOwnProperty.call(template, 'path'));
 
 	// Add optional check for context
 	const hasValidContext = !template.context || typeof template.context === 'string';
 
 	return hasRequiredFields && hasValidProperties && hasValidNoteNameAndPath && hasValidContext;
-}
-
-function preventDefaults(e: Event): void {
-	e.preventDefault();
-	e.stopPropagation();
-}
-
-function handleDrop(e: DragEvent): void {
-	const dt = e.dataTransfer;
-	const files = dt?.files;
-
-	if (files && files.length) {
-		handleFiles(files);
-	}
-}
-
-function handleFiles(files: FileList): void {
-	Array.from(files).forEach(importTemplateFile);
 }
 
 async function processImportedTemplate(importedTemplate: Partial<Template>): Promise<Template> {

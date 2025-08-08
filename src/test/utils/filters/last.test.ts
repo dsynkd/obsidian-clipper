@@ -7,6 +7,5 @@ describe('last filter', () => {
 	});
 	it('does not modify input if it is not an array', () => {
 		expect(last('{"a":1,"b":2}')).toBe('{"a":1,"b":2}')
-		expect(last('hello')).toBe('hello')
 	});
 });

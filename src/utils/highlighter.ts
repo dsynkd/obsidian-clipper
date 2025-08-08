@@ -683,8 +683,10 @@ function mergeHighlights(highlight1: AnyHighlightData, highlight2: AnyHighlightD
 	if (highlight1.type === 'text' && highlight2.type === 'text' && highlight1.xpath === highlight2.xpath) {
 		return {
 			xpath: highlight1.xpath,
-			content: mergedElement.textContent?.slice(Math.min(highlight1.startOffset, highlight2.startOffset), 
-													  Math.max(highlight1.endOffset, highlight2.endOffset)) || '',
+			content: mergedElement.textContent?.slice(
+				Math.min(highlight1.startOffset, highlight2.startOffset), 
+				Math.max(highlight1.endOffset, highlight2.endOffset)
+			) || '',
 			type: 'text',
 			id: Date.now().toString(),
 			startOffset: Math.min(highlight1.startOffset, highlight2.startOffset),
@@ -900,7 +902,7 @@ function findLastTextNode(element: Element): Text | null {
 	const treeWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
 	let lastNode = null;
 	let currentNode;
-	while(currentNode = treeWalker.nextNode()) {
+	while ((currentNode = treeWalker.nextNode())) {
 		lastNode = currentNode;
 	}
 	return lastNode as Text | null;

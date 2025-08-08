@@ -66,6 +66,30 @@ For Firefox:
 2. Click **Load Temporary Add-on**
 3. Navigate to the `dist_firefox` directory and select the `manifest.json` file
 
+### Linting
+
+This project uses ESLint to ensure consistent code quality and indentation. The linting configuration enforces:
+
+- **Indentation**: Tabs (not spaces) for consistent indentation across the codebase
+- **TypeScript**: Full TypeScript support with type-aware linting
+- **Code Quality**: Unused variables, mixed spaces/tabs, and other common issues
+
+#### Available Commands
+
+- `npm run lint` - Check for linting issues
+- `npm run lint:fix` - Automatically fix linting issues where possible
+- `npm run lint:check` - Check for linting issues with zero tolerance for warnings (useful for CI/CD)
+
+#### Pre-commit Setup
+
+To ensure code quality before commits, you can set up a pre-commit hook:
+
+1. Install husky: `npm install --save-dev husky`
+2. Add to package.json scripts: `"prepare": "husky install"`
+3. Create pre-commit hook: `npx husky add .husky/pre-commit "npm run lint:check"`
+
+This will automatically run linting checks before each commit and prevent commits with linting errors.
+
 ## Third-party libraries
 
 - [webextension-polyfill](https://github.com/mozilla/webextension-polyfill) for browser compatibility

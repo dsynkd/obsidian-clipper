@@ -376,8 +376,8 @@ function processInlineContent(content: string, tempDiv: HTMLDivElement) {
 	
 	const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT);
 	
-	let node;
-	while (node = walker.nextNode() as Text) {
+	let node: Text | null;
+	while ((node = walker.nextNode() as Text)) {
 		const nodeText = node.textContent || '';
 		const index = nodeText.indexOf(searchText);
 		

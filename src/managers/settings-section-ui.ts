@@ -1,9 +1,8 @@
 import { updateUrl } from '../utils/routing';
-import { generalSettings } from '../utils/storage-utils';
 import { updatePromptContextVisibility, initializeInterpreterSettings } from './interpreter-settings';
 import { initializePropertyTypesManager } from './property-types-manager';
 
-export type SettingsSection = 'general' | 'properties' | 'highlighter' | 'interpreter' | 'reader' | 'templates';
+export type SettingsSection = 'general' | 'properties' | 'highlighter' | 'interpreter' | 'reader' | 'templates' | 'custom-variables';
 
 let interpreterSettingsInitialized = false;
 
@@ -47,22 +46,6 @@ export function showSettingsSection(section: SettingsSection, templateId?: strin
 	updatePromptContextVisibility();
 }
 
-function updateSidebarActiveState(activeSection: string): void {
-	document.querySelectorAll('#sidebar li').forEach(item => item.classList.remove('active'));
-	const activeItem = document.querySelector(`#sidebar li[data-section="${activeSection}"]`);
-	if (activeItem) activeItem.classList.add('active');
-}
-
-function updateTemplateListActiveState(templateId: string): void {
-	const templateListItems = document.querySelectorAll('#template-list li');
-	templateListItems.forEach(item => {
-		item.classList.remove('active');
-		if ((item as HTMLElement).dataset.id === templateId) {
-			item.classList.add('active');
-		}
-	});
-}
-
 export function initializeSidebar(): void {
 	const sidebar = document.getElementById('sidebar');
 	const settingsContainer = document.getElementById('settings');
@@ -76,8 +59,9 @@ export function initializeSidebar(): void {
 				|| target.dataset.section === 'properties'
 				|| target.dataset.section === 'highlighter'
 				|| target.dataset.section === 'interpreter'
-				|| target.dataset.section === 'reader') {
-				showSettingsSection(target.dataset.section as 'general' | 'properties' | 'highlighter' | 'interpreter' | 'reader');
+                || target.dataset.section === 'reader'
+                || target.dataset.section === 'custom-variables') {
+				showSettingsSection(target.dataset.section as SettingsSection);
 			}
 			if (settingsContainer) {
 				settingsContainer.classList.remove('sidebar-open');

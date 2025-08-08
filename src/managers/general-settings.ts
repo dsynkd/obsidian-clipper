@@ -1,7 +1,7 @@
 import { handleDragStart, handleDragOver, handleDrop, handleDragEnd } from '../utils/drag-and-drop';
 import { initializeIcons } from '../icons/icons';
 import { getCommands } from '../utils/hotkeys';
-import { initializeToggles, updateToggleState, initializeSettingToggle } from '../utils/ui-utils';
+import { initializeToggles, initializeSettingToggle } from '../utils/ui-utils';
 import { generalSettings, loadSettings, saveSettings, setLocalStorage, getLocalStorage } from '../utils/storage-utils';
 import { detectBrowser } from '../utils/browser-detection';
 import { createElementWithClass, createElementWithHTML } from '../utils/dom-utils';
@@ -120,7 +120,7 @@ async function initializeVersionDisplay(): Promise<void> {
 	// Only add update listener for browsers that support it
 	const currentBrowser = await detectBrowser();
 	if (currentBrowser !== 'safari' && currentBrowser !== 'mobile-safari' && browser.runtime.onUpdateAvailable) {
-		browser.runtime.onUpdateAvailable.addListener((details) => {
+		browser.runtime.onUpdateAvailable.addListener((_) => {
 			if (updateAvailable && usingLatestVersion) {
 				updateAvailable.style.display = 'block';
 				usingLatestVersion.style.display = 'none';
@@ -318,14 +318,14 @@ function initializeResetDefaultTemplateButton(): void {
 }
 
 function initializeSaveBehaviorDropdown(): void {
-    const dropdown = document.getElementById('save-behavior-dropdown') as HTMLSelectElement;
-    if (!dropdown) return;
+	const dropdown = document.getElementById('save-behavior-dropdown') as HTMLSelectElement;
+	if (!dropdown) return;
 
-    dropdown.value = generalSettings.saveBehavior;
-    dropdown.addEventListener('change', () => {
-        const newValue = dropdown.value as 'addToObsidian' | 'copyToClipboard' | 'saveFile';
-        saveSettings({ saveBehavior: newValue });
-    });
+	dropdown.value = generalSettings.saveBehavior;
+	dropdown.addEventListener('change', () => {
+		const newValue = dropdown.value as 'addToObsidian' | 'copyToClipboard' | 'saveFile';
+		saveSettings({ saveBehavior: newValue });
+	});
 }
 
 export function resetDefaultTemplate(): void {
@@ -455,17 +455,4 @@ async function handleRating(rating: number) {
 		const modal = document.getElementById('feedback-modal');
 		showModal(modal);
 	}
-}
-
-function initializeSettingDropdown(
-	elementId: string,
-	defaultValue: string,
-	onChange: (newValue: string) => void
-): void {
-	const dropdown = document.getElementById(elementId) as HTMLSelectElement;
-	if (!dropdown) return;
-	dropdown.value = defaultValue;
-	dropdown.addEventListener('change', () => {
-		onChange(dropdown.value);
-	});
 }

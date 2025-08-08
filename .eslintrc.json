@@ -2,14 +2,72 @@
 	"env": {
 		"browser": true,
 		"es2021": true,
-		"webextensions": true
+		"webextensions": true,
+		"node": true
 	},
-	"extends": "eslint:recommended",
+	"extends": [
+		"eslint:recommended"
+	],
+	"parser": "@typescript-eslint/parser",
 	"parserOptions": {
 		"ecmaVersion": 12,
 		"sourceType": "module"
 	},
+	"plugins": [
+		"@typescript-eslint"
+	],
 	"rules": {
-		"indent": ["error", "tab"]
+		"indent": ["error", "tab", {
+			"SwitchCase": 1,
+			"VariableDeclarator": 1,
+			"outerIIFEBody": 1,
+			"MemberExpression": 1,
+			"FunctionDeclaration": {
+				"parameters": 1,
+				"body": 1
+			},
+			"FunctionExpression": {
+				"parameters": 1,
+				"body": 1
+			},
+			"CallExpression": {
+				"arguments": 1
+			},
+			"ArrayExpression": 1,
+			"ObjectExpression": 1,
+			"ImportDeclaration": 1,
+			"flatTernaryExpressions": false,
+			"ignoreComments": false
+		}],
+		"@typescript-eslint/indent": ["error", "tab", {
+			"SwitchCase": 1,
+			"VariableDeclarator": 1,
+			"outerIIFEBody": 1,
+			"MemberExpression": 1,
+			"FunctionDeclaration": {
+				"parameters": 1,
+				"body": 1
+			},
+			"FunctionExpression": {
+				"parameters": 1,
+				"body": 1
+			},
+			"CallExpression": {
+				"arguments": 1
+			},
+			"ArrayExpression": 1,
+			"ObjectExpression": 1,
+			"ImportDeclaration": 1,
+			"flatTernaryExpressions": false,
+			"ignoreComments": false
+		}],
+		"no-mixed-spaces-and-tabs": "error",
+		"no-unused-vars": "off",
+		"no-useless-escape": "off",
+		"no-control-regex": "off",
+		"@typescript-eslint/no-unused-vars": ["error", {
+			"argsIgnorePattern": "^_",
+			"varsIgnorePattern": "^_"
+		}]
 	}
 }

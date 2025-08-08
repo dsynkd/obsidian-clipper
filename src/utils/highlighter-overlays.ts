@@ -185,7 +185,7 @@ function processRangeForOverlayRects(
 
 	if (rects.length === 0) {
 		const rect = targetElementForFallback.getBoundingClientRect();
-		mergeHighlightOverlayRects([rect], content, existingOverlays, false, index, notes);
+		mergeHighlightOverlayRects([rect], content, existingOverlays, index, notes);
 		return;
 	}
 
@@ -194,10 +194,10 @@ function processRangeForOverlayRects(
 	const complexRects = Array.from(rects).filter(rect => rect.height > averageLineHeight * 1.5);
 
 	if (textRects.length > 0) {
-		mergeHighlightOverlayRects(textRects, content, existingOverlays, true, index, notes);
+		mergeHighlightOverlayRects(textRects, content, existingOverlays, index, notes);
 	}
 	if (complexRects.length > 0) {
-		mergeHighlightOverlayRects(complexRects, content, existingOverlays, false, index, notes);
+		mergeHighlightOverlayRects(complexRects, content, existingOverlays, index, notes);
 	}
 }
 
@@ -215,14 +215,14 @@ export function planHighlightOverlayRects(target: Element, highlight: AnyHighlig
 			} catch (error) {
 				console.error('Error creating line-by-line highlight for element:', target, error);
 				const rect = target.getBoundingClientRect(); // Fallback
-				mergeHighlightOverlayRects([rect], highlight.content, existingOverlays, false, index, highlight.notes);
+				mergeHighlightOverlayRects([rect], highlight.content, existingOverlays, index, highlight.notes);
 			} finally {
 				range.detach();
 			}
 		} else {
 			// Original logic for other element/complex types (single box)
 			const rect = target.getBoundingClientRect();
-			mergeHighlightOverlayRects([rect], highlight.content, existingOverlays, false, index, highlight.notes);
+			mergeHighlightOverlayRects([rect], highlight.content, existingOverlays, index, highlight.notes);
 		}
 	} else if (highlight.type === 'text') {
 		const range = document.createRange();
@@ -253,18 +253,18 @@ export function planHighlightOverlayRects(target: Element, highlight: AnyHighlig
 				} catch (error) { // Catch errors from setStart/setEnd or processRange itself
 					console.warn('Error setting range or processing rects for text highlight:', error);
 					const rect = target.getBoundingClientRect(); // Fallback
-					mergeHighlightOverlayRects([rect], highlight.content, existingOverlays, false, index, highlight.notes);
+					mergeHighlightOverlayRects([rect], highlight.content, existingOverlays, index, highlight.notes);
 				}
 			} else {
 				// Fallback to element highlight if start/end nodes not found
 				console.warn('Could not find start/end node for text highlight, falling back to element bounds.');
 				const rect = target.getBoundingClientRect();
-				mergeHighlightOverlayRects([rect], highlight.content, existingOverlays, false, index, highlight.notes);
+				mergeHighlightOverlayRects([rect], highlight.content, existingOverlays, index, highlight.notes);
 			}
 		} catch (error) { // Outer catch for findTextNodeAtOffset or other unexpected issues
 			console.error('Error creating text highlight:', error);
 			const rect = target.getBoundingClientRect();
-			mergeHighlightOverlayRects([rect], highlight.content, existingOverlays, false, index, highlight.notes);
+			mergeHighlightOverlayRects([rect], highlight.content, existingOverlays, index, highlight.notes);
 		} finally {
 			range.detach();
 		}
@@ -272,7 +272,7 @@ export function planHighlightOverlayRects(target: Element, highlight: AnyHighlig
 }
 
 // Merge a set of rectangles, to avoid adjacent and overlapping highlights where possible
-function mergeHighlightOverlayRects(rects: DOMRect[], content: string, existingOverlays: Element[], isText: boolean = false, index: number, notes?: string[]) {
+function mergeHighlightOverlayRects(rects: DOMRect[], content: string, existingOverlays: Element[], index: number, notes?: string[]) {
 	let mergedRects: DOMRect[] = [];
 	let currentRect: DOMRect | null = null;
 
@@ -304,13 +304,13 @@ function mergeHighlightOverlayRects(rects: DOMRect[], content: string, existingO
 		});
 
 		if (!isDuplicate) {
-			createHighlightOverlayElement(rect, content, isText, index, notes);
+			createHighlightOverlayElement(rect, content, index, notes);
 		}
 	}
 }
 
 // Create an overlay element
-function createHighlightOverlayElement(rect: DOMRect, content: string, isText: boolean = false, index: number, notes?: string[]) {
+function createHighlightOverlayElement(rect: DOMRect, content: string, index: number, notes?: string[]) {
 	const overlay = document.createElement('div');
 	overlay.className = 'obsidian-highlight-overlay';
 	overlay.dataset.highlightIndex = index.toString();
@@ -388,12 +388,12 @@ const observer = new MutationObserver((mutations) => {
 	if (!isApplyingHighlights) {
 		const shouldUpdate = mutations.some(mutation => 
 			(mutation.type === 'childList' && 
-			 (mutation.target instanceof Element) && 
-			 !mutation.target.id.startsWith('obsidian-highlight')) || 
+			(mutation.target instanceof Element) && 
+			!mutation.target.id.startsWith('obsidian-highlight')) || 
 			(mutation.type === 'attributes' && 
-			 (mutation.attributeName === 'style' || mutation.attributeName === 'class') &&
-			 (mutation.target instanceof Element) &&
-			 !mutation.target.id.startsWith('obsidian-highlight'))
+			(mutation.attributeName === 'style' || mutation.attributeName === 'class') &&
+			(mutation.target instanceof Element) &&
+			!mutation.target.id.startsWith('obsidian-highlight'))
 		);
 		if (shouldUpdate) {
 			throttledUpdateHighlights();

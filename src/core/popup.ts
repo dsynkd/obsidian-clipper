@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
-import { Template, Property, PromptVariable } from '../types/types';
-import { incrementStat, addHistoryEntry, getClipHistory } from '../utils/storage-utils';
+import { Template, Property } from '../types/types';
+import { incrementStat } from '../utils/storage-utils';
 import { generateFrontmatter, saveToObsidian } from '../utils/obsidian-note-creator';
 import { extractPageContent, initializePageContent } from '../utils/content-extractor';
 import { compileTemplate } from '../utils/template-compiler';
@@ -52,18 +52,9 @@ const memoizedCompileTemplate = memoizeWithExpiration(
 	}
 );
 
-// Memoize generateFrontmatter with a longer expiration
-const memoizedGenerateFrontmatter = memoizeWithExpiration(
-	async (properties: Property[]) => {
-		return generateFrontmatter(properties);
-	},
-	{ expirationMs: 50 }
-);
-
 // Memoize extractPageContent with URL-sensitive key and short expiration
 const memoizedExtractPageContent = memoizeWithExpiration(
 	async (tabId: number) => {
-		const tab = await browser.tabs.get(tabId);
 		return extractPageContent(tabId);
 	},
 	{ 
@@ -168,7 +159,7 @@ async function initializeExtension(tabId: number) {
 		// Setup message listeners
 		setupMessageListeners();
 
-		await checkHighlighterModeState(tabId);
+		await checkHighlighterModeState();
 
 		return true;
 	} catch (error) {
@@ -294,11 +285,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 			const showMoreActionsButton = document.getElementById('show-variables');
 			if (showMoreActionsButton) {
-					showMoreActionsButton.addEventListener('click', (e) => {
-						e.preventDefault();
-						showVariables();
-					});
-				}
+				showMoreActionsButton.addEventListener('click', (e) => {
+					e.preventDefault();
+					showVariables();
+				});
+			}
 			determineMainAction();
 		} catch (error) {
 			console.error('Error initializing popup:', error);
@@ -336,7 +327,6 @@ function setupEventListeners(tabId: number) {
 	const moreDropdown = document.getElementById('more-dropdown');
 	const copyContentButton = document.getElementById('copy-content');
 	const saveDownloadsButton = document.getElementById('save-downloads');
-	const shareContentButton = document.getElementById('share-content');
 
 	if (moreButton && moreDropdown) {
 		moreButton.addEventListener('click', (e) => {
@@ -378,7 +368,7 @@ function setupEventListeners(tabId: number) {
 	const shareButtons = document.querySelectorAll('.share-content');
 	if (shareButtons) {
 		shareButtons.forEach(button => {
-			button.addEventListener('click', async (e) => {
+			button.addEventListener('click', async () => {
 				// Get content synchronously
 				const properties = Array.from(document.querySelectorAll('.metadata-property input')).map(input => {
 					const inputElement = input as HTMLInputElement;
@@ -424,10 +414,7 @@ function setupEventListeners(tabId: number) {
 							navigator.share(shareData)
 								.then(async () => {
 									await incrementStat('share', vault, path);
-									const moreDropdown = document.getElementById('more-dropdown');
-									if (moreDropdown) {
-											moreDropdown.classList.remove('show');
-									}
+									document.getElementById('more-dropdown')?.classList.remove('show');
 								})
 								.catch((error) => {
 									console.error('Error sharing:', error);
@@ -516,17 +503,6 @@ function showError(messageKey: string): void {
 		document.body.classList.add('has-error');
 	}
 }
-function clearError(): void {
-	const errorMessage = document.querySelector('.error-message') as HTMLElement;
-	const clipper = document.querySelector('.clipper') as HTMLElement;
-
-	if (errorMessage && clipper) {
-		errorMessage.style.display = 'none';
-		clipper.style.display = 'block';
-
-		document.body.classList.remove('has-error');
-	}
-}
 
 function logError(message: string, error?: any): void {
 	console.error(message, error);
@@ -613,9 +589,7 @@ async function refreshFields(tabId: number, checkTemplateTriggers: boolean = tru
 				await initializeTemplateFields(
 					tabId,
 					currentTemplate,
-					initializedContent.currentVariables,
-					initializedContent.noteName,
-					extractedData.schemaOrgData
+					initializedContent.currentVariables
 				);
 
 				// Update variables panel if it's open
@@ -654,7 +628,7 @@ function populateTemplateDropdown() {
 	}
 }
 
-async function initializeTemplateFields(currentTabId: number, template: Template | null, variables: { [key: string]: string }, noteName?: string, schemaOrgData?: any) {
+async function initializeTemplateFields(tabId: number, template: Template | null, variables: { [key: string]: string }) {
 	if (!template) {
 		logError('No template selected');
 		return;
@@ -684,18 +658,46 @@ async function initializeTemplateFields(currentTabId: number, template: Template
 		return;
 	}
 
+	// Merge custom variables: per-template overrides global
+	const mergedVariables: { [key: string]: string } = { ...variables };
+	if (generalSettings.customVariables) {
+		Object.entries(generalSettings.customVariables).forEach(([key, value]) => {
+			mergedVariables[`{{${key}}}`] = value ?? '';
+			mergedVariables[key] = value ?? '';
+		});
+	}
+	if (template.customVariables) {
+		Object.entries(template.customVariables).forEach(([key, value]) => {
+			mergedVariables[`{{${key}}}`] = value ?? '';
+			mergedVariables[key] = value ?? '';
+		});
+	}
+
 	for (const property of template.properties) {
 		const propertyDiv = createElementWithClass('div', 'metadata-property');
-		let value = await memoizedCompileTemplate(currentTabId!, unescapeValue(property.value), variables, currentTabId ? await browser.tabs.get(currentTabId).then(tab => tab.url || '') : '');
+		let value = '';
+		try {
+			value = await memoizedCompileTemplate(
+				tabId!,
+				unescapeValue(property.value),
+				mergedVariables,
+				tabId ? await browser.tabs.get(tabId).then(tab => tab.url || '') : ''
+			);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : 'Failed to compile property due to variable error';
+			showError(msg);
+			value = '';
+		}
 
 		const propertyType = generalSettings.propertyTypes.find(p => p.name === property.name)?.type || 'text';
 
 		// Apply type-specific parsing
 		switch (propertyType) {
-			case 'number':
+			case 'number': {
 				const numericValue = value.replace(/[^\d.-]/g, '');
 				value = numericValue ? parseFloat(numericValue).toString() : value;
 				break;
+			}
 			case 'checkbox':
 				value = (value.toLowerCase() === 'true' || value === '1').toString();
 				break;
@@ -720,9 +722,9 @@ async function initializeTemplateFields(currentTabId: number, template: Template
 			</div>
 			<div class="metadata-property-value">
 				${propertyType === 'checkbox' 
-					? `<input id="${property.name}" type="checkbox" ${value === 'true' ? 'checked' : ''} data-type="${propertyType}" data-template-value="${escapeHtml(property.value)}" />`
-					: `<input id="${property.name}" type="text" value="${escapeHtml(value)}" data-type="${propertyType}" data-template-value="${escapeHtml(property.value)}" />`
-				}
+		? `<input id="${property.name}" type="checkbox" ${value === 'true' ? 'checked' : ''} data-type="${propertyType}" data-template-value="${escapeHtml(property.value)}" />`
+		: `<input id="${property.name}" type="text" value="${escapeHtml(value)}" data-type="${propertyType}" data-template-value="${escapeHtml(property.value)}" />`
+}
 			</div>
 		`;
 		newTemplateProperties.appendChild(propertyDiv);
@@ -743,7 +745,19 @@ async function initializeTemplateFields(currentTabId: number, template: Template
 
 	const noteNameField = document.getElementById('note-name-field') as HTMLTextAreaElement;
 	if (noteNameField) {
-		let formattedNoteName = await memoizedCompileTemplate(currentTabId!, template.noteNameFormat, variables, currentTabId ? await browser.tabs.get(currentTabId).then(tab => tab.url || '') : '');
+		let formattedNoteName = '';
+		try {
+			formattedNoteName = await memoizedCompileTemplate(
+				tabId!,
+				template.noteNameFormat,
+				mergedVariables,
+				tabId ? await browser.tabs.get(tabId).then(tab => tab.url || '') : ''
+			);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : 'Failed to compile note name due to variable error';
+			showError(msg);
+			formattedNoteName = '';
+		}
 		noteNameField.setAttribute('data-template-value', template.noteNameFormat);
 		noteNameField.value = formattedNoteName.trim();
 		adjustNoteNameHeight(noteNameField);
@@ -759,7 +773,19 @@ async function initializeTemplateFields(currentTabId: number, template: Template
 			pathField.style.display = 'none';
 		} else {
 			pathContainer.style.display = 'flex';
-			let formattedPath = await memoizedCompileTemplate(currentTabId!, template.path, variables, currentTabId ? await browser.tabs.get(currentTabId).then(tab => tab.url || '') : '');
+			let formattedPath = '';
+			try {
+				formattedPath = await memoizedCompileTemplate(
+					tabId!,
+					template.path,
+					mergedVariables,
+					tabId ? await browser.tabs.get(tabId).then(tab => tab.url || '') : ''
+				);
+			} catch (err) {
+				const msg = err instanceof Error ? err.message : 'Failed to compile path due to variable error';
+				showError(msg);
+				formattedPath = '';
+			}
 			pathField.value = formattedPath;
 			pathField.setAttribute('data-template-value', template.path);
 		}
@@ -768,7 +794,19 @@ async function initializeTemplateFields(currentTabId: number, template: Template
 	const noteContentField = document.getElementById('note-content-field') as HTMLTextAreaElement;
 	if (noteContentField) {
 		if (template.noteContentFormat) {
-			let content = await memoizedCompileTemplate(currentTabId!, template.noteContentFormat, variables, currentTabId ? await browser.tabs.get(currentTabId).then(tab => tab.url || '') : '');
+			let content = '';
+			try {
+				content = await memoizedCompileTemplate(
+					tabId!,
+					template.noteContentFormat,
+					mergedVariables,
+					tabId ? await browser.tabs.get(tabId).then(tab => tab.url || '') : ''
+				);
+			} catch (err) {
+				const msg = err instanceof Error ? err.message : 'Failed to compile content due to variable error';
+				showError(msg);
+				content = '';
+			}
 			noteContentField.value = content;
 			noteContentField.setAttribute('data-template-value', template.noteContentFormat);
 		} else {
@@ -779,7 +817,7 @@ async function initializeTemplateFields(currentTabId: number, template: Template
 
 	if (template) {
 		if (generalSettings.interpreterEnabled) {
-			await initializeInterpreter(template, variables, currentTabId!, currentTabId ? await browser.tabs.get(currentTabId).then(tab => tab.url || '') : '');
+			await initializeInterpreter(template, mergedVariables, tabId!, tabId ? await browser.tabs.get(tabId).then(tab => tab.url || '') : '');
 
 			// Check if there are any prompt variables
 			const promptVariables = collectPromptVariables(template);
@@ -794,7 +832,7 @@ async function initializeTemplateFields(currentTabId: number, template: Template
 					if (!modelConfig) {
 						throw new Error(`Model configuration not found for ${selectedModelId}`);
 					}
-					await handleInterpreterUI(template, variables, currentTabId!, currentTabId ? await browser.tabs.get(currentTabId).then(tab => tab.url || '') : '', modelConfig);
+					await handleInterpreterUI(template, mergedVariables, tabId!, tabId ? await browser.tabs.get(tabId).then(tab => tab.url || '') : '', modelConfig);
 					
 					// Ensure the button shows the completed state after auto-run
 					if (interpretBtn) {
@@ -811,7 +849,18 @@ async function initializeTemplateFields(currentTabId: number, template: Template
 			}
 		}
 
-		const replacedTemplate = await getReplacedTemplate(template, variables, currentTabId!, currentTabId ? await browser.tabs.get(currentTabId).then(tab => tab.url || '') : '');
+		let replacedTemplate: any = {};
+		try {
+			replacedTemplate = await getReplacedTemplate(
+				template,
+				mergedVariables,
+				tabId!,
+				tabId ? await browser.tabs.get(tabId).then(tab => tab.url || '') : ''
+			);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : 'Failed to compile template due to variable error';
+			showError(msg);
+		}
 		debugLog('Variables', 'Current template with replaced variables:', JSON.stringify(replacedTemplate, null, 2));
 	}
 }
@@ -928,7 +977,7 @@ function handleTemplateChange(templateId: string) {
 	refreshFields(currentTabId!, false);
 }
 
-async function checkHighlighterModeState(tabId: number) {
+async function checkHighlighterModeState() {
 	try {
 		const result = await browser.storage.local.get('isHighlighterMode');
 		isHighlighterMode = result.isHighlighterMode as boolean;
@@ -1067,7 +1116,7 @@ async function handleSaveToDownloads() {
 			fileName,
 			mimeType: 'text/markdown',
 			tabId: currentTabId,
-			onError: (error) => showError('failedToSaveFile')
+			onError: (_error) => showError('failedToSaveFile')
 		});
 
 		await incrementStat('saveFile', vault, path);
@@ -1083,141 +1132,141 @@ async function handleSaveToDownloads() {
 }
 
 function determineMainAction() {
-    const mainButton = document.getElementById('clip-btn');
-    const moreDropdown = document.getElementById('more-dropdown');
-    const secondaryActions = moreDropdown?.querySelector('.secondary-actions');
-    if (!mainButton || !secondaryActions) return;
+	const mainButton = document.getElementById('clip-btn');
+	const moreDropdown = document.getElementById('more-dropdown');
+	const secondaryActions = moreDropdown?.querySelector('.secondary-actions');
+	if (!mainButton || !secondaryActions) return;
 
-    // Clear existing secondary actions
-    secondaryActions.innerHTML = '';
+	// Clear existing secondary actions
+	secondaryActions.innerHTML = '';
 
-    // Set up actions based on saved behavior
-    switch (loadedSettings.saveBehavior) {
-        case 'copyToClipboard':
-            mainButton.textContent = getMessage('copyToClipboard');
-            mainButton.onclick = () => copyContent();
-            // Add direct actions to secondary
-            addSecondaryAction(secondaryActions, 'addToObsidian', () => handleClipObsidian());
-            addSecondaryAction(secondaryActions, 'saveFile', handleSaveToDownloads);
-            break;
-        case 'saveFile':
-            mainButton.textContent = getMessage('saveFile');
-            mainButton.onclick = () => handleSaveToDownloads();
-            // Add direct actions to secondary
-            addSecondaryAction(secondaryActions, 'addToObsidian', () => handleClipObsidian());
-            addSecondaryAction(secondaryActions, 'copyToClipboard', copyContent);
-            break;
-        default: // 'addToObsidian'
-            mainButton.textContent = getMessage('addToObsidian');
-            mainButton.onclick = () => handleClipObsidian();
-            // Add direct actions to secondary
-            addSecondaryAction(secondaryActions, 'copyToClipboard', copyContent);
-            addSecondaryAction(secondaryActions, 'saveFile', handleSaveToDownloads);
-    }
+	// Set up actions based on saved behavior
+	switch (loadedSettings.saveBehavior) {
+		case 'copyToClipboard':
+			mainButton.textContent = getMessage('copyToClipboard');
+			mainButton.onclick = () => copyContent();
+			// Add direct actions to secondary
+			addSecondaryAction(secondaryActions, 'addToObsidian', () => handleClipObsidian());
+			addSecondaryAction(secondaryActions, 'saveFile', handleSaveToDownloads);
+			break;
+		case 'saveFile':
+			mainButton.textContent = getMessage('saveFile');
+			mainButton.onclick = () => handleSaveToDownloads();
+			// Add direct actions to secondary
+			addSecondaryAction(secondaryActions, 'addToObsidian', () => handleClipObsidian());
+			addSecondaryAction(secondaryActions, 'copyToClipboard', copyContent);
+			break;
+		default: // 'addToObsidian'
+			mainButton.textContent = getMessage('addToObsidian');
+			mainButton.onclick = () => handleClipObsidian();
+			// Add direct actions to secondary
+			addSecondaryAction(secondaryActions, 'copyToClipboard', copyContent);
+			addSecondaryAction(secondaryActions, 'saveFile', handleSaveToDownloads);
+	}
 }
 
 // New function specifically for Obsidian operations
 async function handleClipObsidian(): Promise<void> {
-    if (!currentTemplate) return;
+	if (!currentTemplate) return;
 
-    const vaultDropdown = document.getElementById('vault-select') as HTMLSelectElement;
-    const noteContentField = document.getElementById('note-content-field') as HTMLTextAreaElement;
-    const noteNameField = document.getElementById('note-name-field') as HTMLInputElement;
-    const pathField = document.getElementById('path-name-field') as HTMLInputElement;
-    const interpretBtn = document.getElementById('interpret-btn') as HTMLButtonElement;
+	const vaultDropdown = document.getElementById('vault-select') as HTMLSelectElement;
+	const noteContentField = document.getElementById('note-content-field') as HTMLTextAreaElement;
+	const noteNameField = document.getElementById('note-name-field') as HTMLInputElement;
+	const pathField = document.getElementById('path-name-field') as HTMLInputElement;
+	const interpretBtn = document.getElementById('interpret-btn') as HTMLButtonElement;
 
-    if (!vaultDropdown || !noteContentField) {
-        showError('Some required fields are missing. Please try reloading the extension.');
-        return;
-    }
+	if (!vaultDropdown || !noteContentField) {
+		showError('Some required fields are missing. Please try reloading the extension.');
+		return;
+	}
 
-    try {
-        // Handle interpreter if needed
-        if (generalSettings.interpreterEnabled && interpretBtn && collectPromptVariables(currentTemplate).length > 0) {
-            if (interpretBtn.classList.contains('processing')) {
-                await waitForInterpreter(interpretBtn);
-            } else if (!interpretBtn.classList.contains('done')) {
-                interpretBtn.click();
-                await waitForInterpreter(interpretBtn);
-            }
-        }
+	try {
+		// Handle interpreter if needed
+		if (generalSettings.interpreterEnabled && interpretBtn && collectPromptVariables(currentTemplate).length > 0) {
+			if (interpretBtn.classList.contains('processing')) {
+				await waitForInterpreter(interpretBtn);
+			} else if (!interpretBtn.classList.contains('done')) {
+				interpretBtn.click();
+				await waitForInterpreter(interpretBtn);
+			}
+		}
 
-        // Gather content
-        const properties = Array.from(document.querySelectorAll('.metadata-property input')).map(input => {
-            const inputElement = input as HTMLInputElement;
-            return {
-                id: inputElement.dataset.id || Date.now().toString() + Math.random().toString(36).slice(2, 11),
-                name: inputElement.id,
-                value: inputElement.type === 'checkbox' ? inputElement.checked : inputElement.value
-            };
-        }) as Property[];
+		// Gather content
+		const properties = Array.from(document.querySelectorAll('.metadata-property input')).map(input => {
+			const inputElement = input as HTMLInputElement;
+			return {
+				id: inputElement.dataset.id || Date.now().toString() + Math.random().toString(36).slice(2, 11),
+				name: inputElement.id,
+				value: inputElement.type === 'checkbox' ? inputElement.checked : inputElement.value
+			};
+		}) as Property[];
 
-        const frontmatter = await generateFrontmatter(properties);
-        const fileContent = frontmatter + noteContentField.value;
+		const frontmatter = await generateFrontmatter(properties);
+		const fileContent = frontmatter + noteContentField.value;
 
-        // Save to Obsidian
-        const selectedVault = currentTemplate.vault || vaultDropdown.value;
-        const isDailyNote = currentTemplate.behavior === 'append-daily' || currentTemplate.behavior === 'prepend-daily';
-        const noteName = isDailyNote ? '' : noteNameField?.value || '';
-        const path = isDailyNote ? '' : pathField?.value || '';
+		// Save to Obsidian
+		const selectedVault = currentTemplate.vault || vaultDropdown.value;
+		const isDailyNote = currentTemplate.behavior === 'append-daily' || currentTemplate.behavior === 'prepend-daily';
+		const noteName = isDailyNote ? '' : noteNameField?.value || '';
+		const path = isDailyNote ? '' : pathField?.value || '';
 
-        await saveToObsidian(fileContent, noteName, path, selectedVault, currentTemplate.behavior);
-        await incrementStat('addToObsidian', selectedVault, path);
+		await saveToObsidian(fileContent, noteName, path, selectedVault, currentTemplate.behavior);
+		await incrementStat('addToObsidian', selectedVault, path);
 
-        if (!currentTemplate.vault) {
-            lastSelectedVault = selectedVault;
-            await setLocalStorage('lastSelectedVault', lastSelectedVault);
-        }
+		if (!currentTemplate.vault) {
+			lastSelectedVault = selectedVault;
+			await setLocalStorage('lastSelectedVault', lastSelectedVault);
+		}
 
-        if (!isSidePanel) {
-            setTimeout(() => window.close(), 500);
-        }
-    } catch (error) {
-        console.error('Error in handleClipObsidian:', error);
-        showError('failedToSaveFile');
-        throw error;
-    }
+		if (!isSidePanel) {
+			setTimeout(() => window.close(), 500);
+		}
+	} catch (error) {
+		console.error('Error in handleClipObsidian:', error);
+		showError('failedToSaveFile');
+		throw error;
+	}
 }
 
 function addSecondaryAction(container: Element, actionType: string, handler: () => void) {
-    const menuItem = document.createElement('div');
-    menuItem.className = 'menu-item';
-    menuItem.innerHTML = `
-        <div class="menu-item-icon">
-            <i data-lucide="${getActionIcon(actionType)}"></i>
-        </div>
-        <div class="menu-item-title" data-i18n="${actionType}">
-            ${getMessage(actionType)}
-        </div>
-    `;
-    menuItem.addEventListener('click', handler);
-    container.appendChild(menuItem);
-    initializeIcons(menuItem);
+	const menuItem = document.createElement('div');
+	menuItem.className = 'menu-item';
+	menuItem.innerHTML = `
+		<div class="menu-item-icon">
+			<i data-lucide="${getActionIcon(actionType)}"></i>
+		</div>
+		<div class="menu-item-title" data-i18n="${actionType}">
+			${getMessage(actionType)}
+		</div>
+	`;
+	menuItem.addEventListener('click', handler);
+	container.appendChild(menuItem);
+	initializeIcons(menuItem);
 }
 
 function getActionIcon(actionType: string): string {
-    switch (actionType) {
-        case 'copyToClipboard': return 'copy';
-        case 'saveFile': return 'file-down';
-        case 'addToObsidian': return 'pen-line';
-        default: return 'plus';
-    }
+	switch (actionType) {
+		case 'copyToClipboard': return 'copy';
+		case 'saveFile': return 'file-down';
+		case 'addToObsidian': return 'pen-line';
+		default: return 'plus';
+	}
 }
 
 async function copyContent() {
-    const properties = Array.from(document.querySelectorAll('.metadata-property input')).map(input => {
-        const inputElement = input as HTMLInputElement;
-        return {
-            id: inputElement.dataset.id || Date.now().toString() + Math.random().toString(36).slice(2, 11),
-            name: inputElement.id,
-            value: inputElement.type === 'checkbox' ? inputElement.checked : inputElement.value
-        };
-    }) as Property[];
+	const properties = Array.from(document.querySelectorAll('.metadata-property input')).map(input => {
+		const inputElement = input as HTMLInputElement;
+		return {
+			id: inputElement.dataset.id || Date.now().toString() + Math.random().toString(36).slice(2, 11),
+			name: inputElement.id,
+			value: inputElement.type === 'checkbox' ? inputElement.checked : inputElement.value
+		};
+	}) as Property[];
 
-    const noteContentField = document.getElementById('note-content-field') as HTMLTextAreaElement;
-    const frontmatter = await generateFrontmatter(properties);
-    const fileContent = frontmatter + noteContentField.value;
-    await copyToClipboard(fileContent);
+	const noteContentField = document.getElementById('note-content-field') as HTMLTextAreaElement;
+	const frontmatter = await generateFrontmatter(properties);
+	const fileContent = frontmatter + noteContentField.value;
+	await copyToClipboard(fileContent);
 }
 
 // Update the resize event listener to use the debounced version

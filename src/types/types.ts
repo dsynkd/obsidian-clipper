@@ -1,3 +1,4 @@
+
 export interface Template {
 	id: string;
 	name: string;
@@ -9,6 +10,7 @@ export interface Template {
 	triggers?: string[];
 	vault?: string;
 	context?: string;
+	customVariables?: { [key: string]: string }; // Per-template custom variables
 }
 
 export interface Property {
@@ -86,6 +88,7 @@ export interface Settings {
 	history: HistoryEntry[];
 	ratings: Rating[];
 	saveBehavior: 'addToObsidian' | 'saveFile' | 'copyToClipboard';
+	customVariables?: { [key: string]: string }; // Global custom variables
 }
 
 export interface ModelConfig {
@@ -125,4 +128,24 @@ export interface ConversationMetadata {
 export interface Footnote {
 	url: string;
 	text: string;
+}
+
+export interface ContentResponse {
+	content: string;
+	selectedHtml: string;
+	extractedContent: { [key: string]: string };
+	schemaOrgData: any;
+	fullHtml: string;
+	highlights: string[];
+	title: string;
+	description: string;
+	domain: string;
+	favicon: string;
+	image: string;
+	parseTime: number;
+	published: string;
+	author: string;
+	site: string;
+	wordCount: number;
+	metaTags: { name?: string | null; property?: string | null; content: string | null }[];
 }

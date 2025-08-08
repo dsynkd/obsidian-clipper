@@ -12,6 +12,7 @@ import {
 import { updateTemplateList, showTemplateEditor, initializeAddPropertyButton } from '../managers/template-ui';
 import { initializeGeneralSettings } from '../managers/general-settings';
 import { showSettingsSection, initializeSidebar } from '../managers/settings-section-ui';
+import { initializeCustomVariablesSettings } from '../managers/custom-variables-settings';
 import { initializeReaderSettings } from '../managers/reader-settings';
 import { initializeAutoSave } from '../utils/auto-save';
 import { handleTemplateDrag, initializeDragAndDrop } from '../utils/drag-and-drop';
@@ -41,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 		await translatePage();
 		
 		await initializeGeneralSettings();
+		initializeCustomVariablesSettings();
 		await initializeReaderSettings();
 		const loadedTemplates = await loadTemplates();
 		updateTemplateList(loadedTemplates);
@@ -142,7 +144,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 	async function handleUrlParameters(): Promise<void> {
 		const { section, templateId } = getUrlParameters();
 
-		if (section === 'general' || section === 'interpreter' || section === 'properties' || section === 'highlighter' || section === 'reader') {
+		if (section === 'general' || section === 'interpreter' || section === 'properties' || section === 'highlighter' || section === 'reader' || section === 'custom-variables') {
 			showSettingsSection(section);
 		} else if (templateId) {
 			const template = findTemplateById(templateId);

@@ -178,47 +178,47 @@ export function applyFilters(value: string | any[], filterString: string, curren
 
 	// Reduce through all filter names, applying each filter sequentially
 	const result = filterNames.reduce((result, filterName) => {
-			// Parse the filter string into name and parameters
-			const [name, ...params] = parseFilterString(filterName);
-			debugLog('Filters', `Parsed filter: ${name}, Params:`, params);
+		// Parse the filter string into name and parameters
+		const [name, ...params] = parseFilterString(filterName);
+		debugLog('Filters', `Parsed filter: ${name}, Params:`, params);
 
-			// Get the filter function from the filters object
-			const filter = filters[name];
-			if (filter) {
-				// Convert the input to a string if it's not already
-				const stringInput = typeof result === 'string' ? result : JSON.stringify(result);
+		// Get the filter function from the filters object
+		const filter = filters[name];
+		if (filter) {
+			// Convert the input to a string if it's not already
+			const stringInput = typeof result === 'string' ? result : JSON.stringify(result);
 				
-				// Special case for markdown filter: use currentUrl if no params provided
-				if (name === 'markdown' && params.length === 0 && currentUrl) {
-					params.push(currentUrl);
-				}
-
-				// Special case for fragment filter: use currentUrl if no params provided
-				if (name === 'fragment_link' && currentUrl) {
-					params.push(currentUrl);
-				} 
-				
-				// Apply the filter and get the output
-				const output = filter(stringInput, params.join(':'));
-				
-				debugLog('Filters', `Filter ${name} output:`, output);
-
-				// If the output is a string that looks like JSON, try to parse it
-				if (typeof output === 'string' && (output.startsWith('[') || output.startsWith('{'))) {
-					try {
-						return JSON.parse(output);
-					} catch {
-						return output;
-					}
-				}
-				return output;
-			} else {
-				// If the filter doesn't exist, log an error and return the unmodified result
-				console.error(`Invalid filter: ${name}`);
-				debugLog('Filters', `Available filters:`, Object.keys(filters));
-				return result;
+			// Special case for markdown filter: use currentUrl if no params provided
+			if (name === 'markdown' && params.length === 0 && currentUrl) {
+				params.push(currentUrl);
 			}
-		}, processedValue);
+
+			// Special case for fragment filter: use currentUrl if no params provided
+			if (name === 'fragment_link' && currentUrl) {
+				params.push(currentUrl);
+			} 
+				
+			// Apply the filter and get the output
+			const output = filter(stringInput, params.join(':'));
+				
+			debugLog('Filters', `Filter ${name} output:`, output);
+
+			// If the output is a string that looks like JSON, try to parse it
+			if (typeof output === 'string' && (output.startsWith('[') || output.startsWith('{'))) {
+				try {
+					return JSON.parse(output);
+				} catch {
+					return output;
+				}
+			}
+			return output;
+		} else {
+			// If the filter doesn't exist, log an error and return the unmodified result
+			console.error(`Invalid filter: ${name}`);
+			debugLog('Filters', `Available filters:`, Object.keys(filters));
+			return result;
+		}
+	}, processedValue);
 
 	// Ensure the final result is a string
 	return typeof result === 'string' ? result : JSON.stringify(result);

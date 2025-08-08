@@ -685,8 +685,8 @@ export class Reader {
 				if (!link) return false;
 				const href = link.href.toLowerCase();
 				return href.endsWith('.jpg') || href.endsWith('.jpeg') || 
-					   href.endsWith('.png') || href.endsWith('.gif') || 
-					   href.endsWith('.webp') || href.endsWith('.avif');
+					href.endsWith('.png') || href.endsWith('.gif') || 
+					href.endsWith('.webp') || href.endsWith('.avif');
 			}) as HTMLImageElement[];
 
 			// Get figure images
@@ -1064,7 +1064,7 @@ export class Reader {
 			this.isActive = false;
 
 			// Reapply highlights after restoring original content
-			if (typeof window !== 'undefined' && window.hasOwnProperty('applyHighlights')) {
+			if (typeof window !== 'undefined' && Object.prototype.hasOwnProperty.call(window, 'applyHighlights')) {
 				(window as any).applyHighlights();
 			}
 		}

@@ -1,7 +1,7 @@
 import browser from './browser-polyfill';
 import { escapeDoubleQuotes, sanitizeFileName } from '../utils/string-utils';
 import { Template, Property } from '../types/types';
-import { generalSettings, incrementStat } from './storage-utils';
+import { generalSettings } from './storage-utils';
 
 export async function generateFrontmatter(properties: Property[]): Promise<string> {
 	let frontmatter = '---\n';
@@ -11,7 +11,7 @@ export async function generateFrontmatter(properties: Property[]): Promise<strin
 		const propertyType = generalSettings.propertyTypes.find(p => p.name === property.name)?.type || 'text';
 
 		switch (propertyType) {
-			case 'multitext':
+			case 'multitext': {
 				let items: string[];
 				if (property.value.trim().startsWith('["') && property.value.trim().endsWith('"]')) {
 					try {
@@ -34,14 +34,17 @@ export async function generateFrontmatter(properties: Property[]): Promise<strin
 					frontmatter += '\n';
 				}
 				break;
-			case 'number':
+			}
+			case 'number': {
 				const numericValue = property.value.replace(/[^\d.-]/g, '');
 				frontmatter += numericValue ? ` ${parseFloat(numericValue)}\n` : '\n';
 				break;
-			case 'checkbox':
+			}
+			case 'checkbox': {
 				const isChecked = typeof property.value === 'boolean' ? property.value : property.value === 'true';
 				frontmatter += ` ${isChecked}\n`;
 				break;
+			}
 			case 'date':
 			case 'datetime':
 				if (property.value.trim() !== '') {

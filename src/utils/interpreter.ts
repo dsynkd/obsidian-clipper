@@ -8,6 +8,7 @@ import { debugLog } from './debug';
 import { getMessage } from './i18n';
 import { updateTokenCount } from './token-counter';
 
+type EventListener = (evt: Event) => void;
 const RATE_LIMIT_RESET_TIME = 60000; // 1 minute in milliseconds
 let lastRequestTime = 0;
 
@@ -46,7 +47,7 @@ export async function sendToLLM(promptContext: string, content: string, promptVa
 
 		let requestUrl: string;
 		let requestBody: any;
-		let headers: HeadersInit = {
+		let headers: Record<string, string> = {
 			'Content-Type': 'application/json',
 		};
 

@@ -200,7 +200,7 @@ export function createMarkdownContent(content: string, url: string) {
 			}
 			return false;
 		},
-		replacement: function (content: string, node: Node): string {
+		replacement: function (_, node: Node): string {
 			if (node instanceof HTMLIFrameElement) {
 				const src = node.getAttribute('src');
 				if (src) {
@@ -237,14 +237,14 @@ export function createMarkdownContent(content: string, url: string) {
 
 	// Add a new custom rule for complex link structures
 	turndownService.addRule('complexLinkStructure', {
-		filter: function (node, options) {
+		filter: (node, _) => {
 			return (
 				node.nodeName === 'A' &&
 				node.childNodes.length > 1 &&
 				Array.from(node.childNodes).some(child => ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(child.nodeName))
 			);
 		},
-		replacement: function (content, node, options) {
+		replacement: (content, node, _options) => {
 			if (!(node instanceof HTMLElement)) return content;
 			const href = node.getAttribute('href');
 			const title = node.getAttribute('title');
@@ -373,16 +373,14 @@ export function createMarkdownContent(content: string, url: string) {
 			if (node.classList.contains('footnote-backref')) return true;
 			return false;
 		},
-		replacement: function (content, node) {
-			return '';
-		}
+		replacement: () => ''
 	});
 
 	turndownService.addRule('handleTextNodesInTables', {
 		filter: function (node: Node): boolean {
 			return node.nodeType === Node.TEXT_NODE && 
-				   node.parentNode !== null && 
-				   node.parentNode.nodeName === 'TD';
+				node.parentNode !== null && 
+				node.parentNode.nodeName === 'TD';
 		},
 		replacement: function (content: string): string {
 			return content;
@@ -499,7 +497,7 @@ export function createMarkdownContent(content: string, url: string) {
 	turndownService.addRule('katex', {
 		filter: (node) => {
 			return node instanceof HTMLElement && 
-				   (node.classList.contains('math') || node.classList.contains('katex'));
+				(node.classList.contains('math') || node.classList.contains('katex'));
 		},
 		replacement: (content, node) => {
 			if (!(node instanceof HTMLElement)) return content;

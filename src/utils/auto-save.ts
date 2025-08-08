@@ -1,5 +1,5 @@
 import { saveTemplateSettings, editingTemplateIndex } from '../managers/template-manager';
-import { updateTemplateList, addPropertyToEditor, updateTemplateFromForm } from '../managers/template-ui';
+import { updateTemplateList, updateTemplateFromForm } from '../managers/template-ui';
 
 let isReordering = false;
 
@@ -11,7 +11,7 @@ export function initializeAutoSave(): void {
 	}
 
 	const debounce = <T extends (...args: any[]) => any>(func: T, delay: number): ((...args: Parameters<T>) => void) => {
-		let debounceTimer: NodeJS.Timeout | null = null;
+		let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 		return function(this: any, ...args: Parameters<T>) {
 			const context = this;
 			if (debounceTimer) clearTimeout(debounceTimer);

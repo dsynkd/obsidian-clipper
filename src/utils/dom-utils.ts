@@ -70,7 +70,7 @@ export function wrapTextWithMark(element: Element, highlight: { startOffset: num
 	let endOffset = 0;
 	
 	let node;
-	while (node = walker.nextNode() as Text) {
+	while ((node = walker.nextNode() as Text)) {
 		const length = node.length;
 		
 		if (!startNode && currentOffset + length > highlight.startOffset) {
