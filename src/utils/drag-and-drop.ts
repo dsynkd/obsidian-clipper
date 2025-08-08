@@ -203,24 +203,24 @@ function handleCustomVariablesReorder(list: HTMLElement): void {
 }
 
 function handleTemplateCustomVariablesReorder(list: HTMLElement): void {
-    // Persist order for per-template custom variables
-    const rows = Array.from(list.querySelectorAll('.property-editor')) as HTMLElement[];
-    const orderedEntries: Array<[string, string]> = rows.map((row) => {
-        const nameInput = row.querySelector('.property-name') as HTMLInputElement | null;
-        const valueInput = row.querySelector('.property-value') as HTMLInputElement | null;
-        const name = nameInput?.value?.trim() || '';
-        const value = valueInput?.value ?? '';
-        return [name, value];
-    }).filter((tuple): tuple is [string, string] => tuple[0].length > 0);
+	// Persist order for per-template custom variables
+	const rows = Array.from(list.querySelectorAll('.property-editor')) as HTMLElement[];
+	const orderedEntries: Array<[string, string]> = rows.map((row) => {
+		const nameInput = row.querySelector('.property-name') as HTMLInputElement | null;
+		const valueInput = row.querySelector('.property-value') as HTMLInputElement | null;
+		const name = nameInput?.value?.trim() || '';
+		const value = valueInput?.value ?? '';
+		return [name, value];
+	}).filter((tuple): tuple is [string, string] => tuple[0].length > 0);
 
-    const templates = getTemplates();
-    const idx = getEditingTemplateIndex();
-    if (idx < 0 || !templates[idx]) return;
-    const t = templates[idx] as Template;
-    const newMap: Record<string, string> = {};
-    orderedEntries.forEach(([k, v]) => { newMap[k] = v; });
-    t.customVariables = newMap;
-    saveTemplateSettings();
+	const templates = getTemplates();
+	const idx = getEditingTemplateIndex();
+	if (idx < 0 || !templates[idx]) return;
+	const t = templates[idx] as Template;
+	const newMap: Record<string, string> = {};
+	orderedEntries.forEach(([k, v]) => { newMap[k] = v; });
+	t.customVariables = newMap;
+	saveTemplateSettings();
 }
 
 export function moveItem<T>(array: T[], fromIndex: number, toIndex: number): T[] {
