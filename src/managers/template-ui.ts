@@ -206,10 +206,6 @@ export function showTemplateEditor(template: Template | null): void {
 
 	refreshPropertyNameSuggestions();
 
-	if (editingTemplate && Array.isArray(editingTemplate.properties)) {
-		editingTemplate.properties.forEach(property => addPropertyToEditor(property.name, property.value, property.id));
-	}
-
 	// Per-template custom variables UI
 	function isValidVariableName(name: string): boolean {
 		return /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name);
@@ -343,6 +339,10 @@ export function showTemplateEditor(template: Template | null): void {
 		}
 	}
 	renderTemplateCustomVariables();
+
+	if (editingTemplate && Array.isArray(editingTemplate.properties)) {
+		editingTemplate.properties.forEach(property => addPropertyToEditor(property.name, property.value, property.id));
+	}
 
 	// old add button logic replaced by list-style add above
 
