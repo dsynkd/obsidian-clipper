@@ -1,4 +1,4 @@
-import { Template, Property } from '../types/types';
+import { Template } from '../types/types';
 import { deleteTemplate, templates, editingTemplateIndex, saveTemplateSettings, setEditingTemplateIndex, loadTemplates } from './template-manager';
 import { initializeIcons, getPropertyTypeIcon } from '../icons/icons';
 import { escapeValue, unescapeValue } from '../utils/string-utils';
@@ -10,6 +10,7 @@ import { updatePromptContextVisibility } from './interpreter-settings';
 import { showSettingsSection } from './settings-section-ui';
 import { updatePropertyType } from './property-types-manager';
 import { getMessage } from '../utils/i18n';
+
 let hasUnsavedChanges = false;
 
 export function resetUnsavedChanges(): void {
@@ -161,6 +162,8 @@ export function showTemplateEditor(template: Template | null): void {
 	} else {
 		editingTemplate = template;
 		setEditingTemplateIndex(templates.findIndex(t => t.id === editingTemplate.id));
+		// Re-render the sidebar list to keep the selected template highlighted
+		updateTemplateList();
 	}
 
 	// Ensure properties is always an array
@@ -171,10 +174,12 @@ export function showTemplateEditor(template: Template | null): void {
 	const templateEditorTitle = document.getElementById('template-editor-title');
 	const templateName = document.getElementById('template-name') as HTMLInputElement;
 	const templateProperties = document.getElementById('template-properties');
+	const customVarsList = document.getElementById('template-custom-variables-list');
 
 	if (templateEditorTitle) templateEditorTitle.textContent = getMessage('editTemplate');
 	if (templateName) templateName.value = editingTemplate.name;
 	if (templateProperties) templateProperties.textContent = '';
+	if (customVarsList) customVarsList.innerHTML = '';
 
 	const pathInput = document.getElementById('template-path-name') as HTMLInputElement;
 	if (pathInput) pathInput.value = editingTemplate.path || '';
@@ -205,6 +210,142 @@ export function showTemplateEditor(template: Template | null): void {
 		editingTemplate.properties.forEach(property => addPropertyToEditor(property.name, property.value, property.id));
 	}
 
+	// Per-template custom variables UI
+	function isValidVariableName(name: string): boolean {
+		return /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(name);
+	}
+	function renderTemplateCustomVariables() {
+		if (!customVarsList) return;
+		customVarsList.innerHTML = '';
+
+		const makeRow = (id: string, name: string, value: string): HTMLElement => {
+			const row = createElementWithClass('div', 'property-editor');
+			row.setAttribute('draggable', 'true');
+			row.dataset.id = id;
+
+			const dragHandle = createElementWithClass('div', 'drag-handle');
+			dragHandle.appendChild(createElementWithHTML('i', '', { 'data-lucide': 'grip-vertical' }));
+			row.appendChild(dragHandle);
+
+			const nameInput = createElementWithHTML('input', '', {
+				type: 'text',
+				class: 'property-name',
+				id: `${id}-name`,
+				value: name,
+				placeholder: getMessage('propertyName') || 'Name',
+				autocapitalize: 'off',
+				autocomplete: 'off',
+				spellcheck: 'false',
+			}) as HTMLInputElement;
+			row.appendChild(nameInput);
+
+			const valueInput = createElementWithHTML('input', '', {
+				type: 'text',
+				class: 'property-value',
+				id: `${id}-value`,
+				value: value,
+				placeholder: getMessage('propertyValue') || 'Value',
+			}) as HTMLInputElement;
+			row.appendChild(valueInput);
+
+			const removeBtn = createElementWithClass('button', 'remove-property-btn clickable-icon');
+			removeBtn.setAttribute('type', 'button');
+			removeBtn.setAttribute('aria-label', getMessage('removeProperty'));
+			removeBtn.appendChild(createElementWithHTML('i', '', { 'data-lucide': 'trash-2' }));
+			row.appendChild(removeBtn);
+
+			// Handlers mirroring global custom vars
+			nameInput.addEventListener('change', async () => {
+				const newName = nameInput.value.trim();
+				if (newName === name) return;
+				if (!isValidVariableName(newName)) {
+					alert(getMessage('invalidVariableName') || 'Invalid name. Use alphanumeric, hyphen, underscore, starting with a letter.');
+					nameInput.value = name;
+					return;
+				}
+				editingTemplate.customVariables = editingTemplate.customVariables || {};
+				if (newName in editingTemplate.customVariables && newName !== name) {
+					alert(getMessage('variableAlreadyExists') || 'A variable with this name already exists.');
+					nameInput.value = name;
+					return;
+				}
+				const currentVal = editingTemplate.customVariables?.[name] ?? valueInput.value;
+				delete editingTemplate.customVariables?.[name];
+				editingTemplate.customVariables![newName] = currentVal;
+				await saveTemplateSettings();
+				name = newName;
+			});
+
+			valueInput.addEventListener('change', async () => {
+				editingTemplate.customVariables = editingTemplate.customVariables || {};
+				const key = nameInput.value.trim();
+				if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(key)) return;
+				editingTemplate.customVariables[key] = valueInput.value;
+				await saveTemplateSettings();
+			});
+
+			removeBtn.addEventListener('click', async () => {
+				editingTemplate.customVariables = editingTemplate.customVariables || {};
+				const key = nameInput.value.trim();
+				if (key in (editingTemplate.customVariables || {})) {
+					delete editingTemplate.customVariables[key];
+					await saveTemplateSettings();
+				}
+				row.parentElement?.removeChild(row);
+			});
+
+			return row;
+		};
+
+		const entries = Object.entries(editingTemplate.customVariables || {});
+		entries.forEach(([key, value]) => {
+			const id = `${Date.now().toString()}-${Math.random().toString(36).slice(2, 11)}`;
+			const row = makeRow(id, key, String(value ?? ''));
+			customVarsList.appendChild(row);
+		});
+		initializeIcons(customVarsList);
+
+		const addTemplateVarBtn = document.getElementById('add-template-custom-variable-btn');
+		if (addTemplateVarBtn) {
+			addTemplateVarBtn.addEventListener('click', async () => {
+				const id = `${Date.now().toString()}-${Math.random().toString(36).slice(2, 11)}`;
+				const row = makeRow(id, '', '');
+				customVarsList.appendChild(row);
+				initializeIcons(row);
+				const nameInput = row.querySelector('.property-name') as HTMLInputElement | null;
+				const valueInput = row.querySelector('.property-value') as HTMLInputElement | null;
+				if (nameInput) {
+					nameInput.focus();
+					nameInput.addEventListener('blur', async () => {
+						const key = nameInput.value.trim();
+						if (!key) {
+							customVarsList.removeChild(row);
+							return;
+						}
+						if (!isValidVariableName(key)) {
+							alert(getMessage('invalidVariableName') || 'Invalid name. Use alphanumeric, hyphen, underscore, starting with a letter.');
+							customVarsList.removeChild(row);
+							return;
+						}
+						editingTemplate.customVariables = editingTemplate.customVariables || {};
+						if (editingTemplate.customVariables[key]) {
+							const ok = confirm(getMessage('overwriteVariableConfirm') || 'Variable exists. Overwrite?');
+							if (!ok) {
+								customVarsList.removeChild(row);
+								return;
+							}
+						}
+						editingTemplate.customVariables[key] = valueInput?.value ?? '';
+						await saveTemplateSettings();
+					}, { once: true });
+				}
+			});
+		}
+	}
+	renderTemplateCustomVariables();
+
+	// old add button logic replaced by list-style add above
+
 	const triggersTextarea = document.getElementById('url-patterns') as HTMLTextAreaElement;
 	if (triggersTextarea) triggersTextarea.value = editingTemplate && editingTemplate.triggers ? editingTemplate.triggers.join('\n') : '';
 
@@ -217,8 +358,6 @@ export function showTemplateEditor(template: Template | null): void {
 			templateNameField.select();
 		}
 	}
-
-	resetUnsavedChanges();
 
 	if (templateName) {
 		templateName.addEventListener('input', () => {
