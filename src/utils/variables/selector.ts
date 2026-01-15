@@ -17,8 +17,9 @@ export async function processSelector(tabId: number, match: string, currentUrl: 
 	const selector = rawSelector.replace(/\\"/g, '"');
 
 	try {
-		const response = await browser.tabs.sendMessage(tabId, { 
-			action: "extractContent", 
+		const response = await browser.runtime.sendMessage({ 
+			action: "extractContent",
+			tabId: tabId,
 			selector: selector,
 			attribute: attribute,
 			extractHtml: extractHtml

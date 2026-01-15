@@ -131,6 +131,19 @@ browser.runtime.onMessage.addListener((request: unknown, sender: browser.Runtime
 			return true;
 		}
 
+		if (typedRequest.action === "extractContent" && typedRequest.tabId) {
+			// Forward the message to the specified tab's content script
+			browser.tabs.sendMessage(typedRequest.tabId, {
+				action: "extractContent",
+				selector: (request as any).selector,
+				attribute: (request as any).attribute,
+				extractHtml: (request as any).extractHtml
+			}).then(sendResponse).catch((error) => {
+				sendResponse({ content: '', error: error.message });
+			});
+			return true;
+		}
+
 		if (typedRequest.action === "extractContent" && sender.tab && sender.tab.id) {
 			browser.tabs.sendMessage(sender.tab.id, request).then(sendResponse);
 			return true;
