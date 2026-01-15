@@ -216,7 +216,6 @@ export function showTemplateEditor(template: Template | null): void {
 
 		const makeRow = (id: string, name: string, value: string): HTMLElement => {
 			const row = createElementWithClass('div', 'property-editor');
-			row.setAttribute('draggable', 'true');
 			row.dataset.id = id;
 
 			const dragHandle = createElementWithClass('div', 'drag-handle');
@@ -249,6 +248,31 @@ export function showTemplateEditor(template: Template | null): void {
 			removeBtn.setAttribute('aria-label', getMessage('removeProperty'));
 			removeBtn.appendChild(createElementWithHTML('i', '', { 'data-lucide': 'trash-2' }));
 			row.appendChild(removeBtn);
+
+			// Enable dragging only from the drag handle
+			dragHandle.addEventListener('mousedown', (event) => {
+				event.stopPropagation();
+				row.setAttribute('draggable', 'true');
+				customVarsList.querySelectorAll('.property-editor').forEach((el) => {
+					if (el !== row) {
+						el.setAttribute('draggable', 'true');
+					}
+				});
+			});
+
+			const resetDraggable = () => {
+				row.removeAttribute('draggable');
+				customVarsList.querySelectorAll('.property-editor').forEach((el) => {
+					el.removeAttribute('draggable');
+				});
+			};
+
+			row.addEventListener('dragend', resetDraggable);
+			row.addEventListener('mouseup', resetDraggable);
+			row.addEventListener('dragstart', handleDragStart);
+			row.addEventListener('dragover', handleDragOver);
+			row.addEventListener('drop', handleDrop);
+			row.addEventListener('dragend', handleDragEnd);
 
 			// Handlers mirroring global custom vars
 			nameInput.addEventListener('change', async () => {
@@ -506,16 +530,14 @@ export function addPropertyToEditor(name: string = '', value: string = '', id: s
 
 	templateProperties.appendChild(propertyDiv);
 
-	propertyDiv.addEventListener('mousedown', (event) => {
+	dragHandle.addEventListener('mousedown', (event) => {
 		const target = event.target as HTMLElement;
-		if (!target.closest('input, select, button')) {
-			propertyDiv.setAttribute('draggable', 'true');
-			templateProperties.querySelectorAll('.property-editor').forEach((el) => {
-				if (el !== propertyDiv) {
-					el.setAttribute('draggable', 'true');
-				}
-			});
-		}
+		propertyDiv.setAttribute('draggable', 'true');
+		templateProperties.querySelectorAll('.property-editor').forEach((el) => {
+			if (el !== propertyDiv) {
+				el.setAttribute('draggable', 'true');
+			}
+		});
 	});
 
 	const resetDraggable = () => {
